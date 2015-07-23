@@ -21,8 +21,10 @@ import logging
 
 logger = logging.getLogger('spf-digraph')
 
+
 def debug(*args, **kwargs):
     logger.debug(*args, **kwargs)
+
 
 def find(f, itr, default=None):
     """
@@ -33,10 +35,12 @@ def find(f, itr, default=None):
             return x
     return default
 
+
 class Node(object):
     """
     Node for resolve message tree
     """
+
     def __init__(self, name):
         self.name = name
         self.children_names = set()
@@ -51,7 +55,8 @@ class Node(object):
             return find(lambda x: x.name == name, self.children)
 
     def __unicode__(self):
-        return "{} -> ({})".format(self.name, ', '.join(map(unicode, self.children)))
+        return "{} -> ({})".format(self.name, ', '.join(map(unicode,
+                                                            self.children)))
 
     def __str__(self):
         return self.__unicode__()
@@ -61,6 +66,7 @@ class TreeBuilder(object):
     """
     Builds Node tree from resolve messages
     """
+
     def __init__(self):
         self.stack = []
         self.resolver = Resolver()
@@ -95,6 +101,20 @@ class Resolver(object):
         """
         return record.startswith('include:')
 
+    @classmethod
+    def to_text(cls, x):
+        """
+        Convert dns record to text
+        """
+        return x.to_text()
+
+    @classmethod
+    def is_spf(cls, x):
+        """
+        Is the TXT record an spf record?
+        """
+        return x.strip('"').startswith('v=spf1')
+
     def __call__(self, domain):
         """
         queries spf records on domain recursively, sending messages to caller
@@ -102,14 +122,8 @@ class Resolver(object):
         """
         yield 'enter', domain
 
-        def to_text(x):
-            return x.to_text()
-
-        def is_spf(x):
-            return x.strip('"').startswith('v=spf1')
-
-        res = map(to_text, query(domain, "TXT"))
-        terms = find(is_spf, res, '').split()
+        res = map(self.to_text, query(domain, "TXT"))
+        terms = find(self.is_spf, res, '').split()
         for record in filter(self.is_include, terms):
             name = record.split(':')[1]
             for typ, name in self(name):
@@ -122,6 +136,7 @@ class Tree(object):
     """
     Tree of nodes
     """
+
     def __init__(self, head):
         self.head = head
 
@@ -147,11 +162,12 @@ class Tree(object):
         return self.__unicode__()
 
 
-def main(domain):
+def digraph(domain):
     print 'digraph G {'
     for a, b in TreeBuilder().build(domain).bigrams():
         print '    "{}" -> "{}"'.format(a, b)
     print '}'
+
 
 if __name__ == '__main__':
     import sys
@@ -164,4 +180,4 @@ if __name__ == '__main__':
         "ERROR: Takes one argument that is domain name"
         sys.exit(1)
 
-    main(sys.argv[1])
+    digraph(sys.argv[1])
