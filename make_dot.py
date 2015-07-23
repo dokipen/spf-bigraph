@@ -164,7 +164,7 @@ class Tree(object):
 
 def digraph(domain):
     print 'digraph G {'
-    for a, b in TreeBuilder().build(domain).bigrams():
+    for a, b in set(TreeBuilder().build(domain).bigrams()):
         print '    "{}" -> "{}"'.format(a, b)
     print '}'
 
