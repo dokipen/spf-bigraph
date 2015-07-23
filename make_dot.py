@@ -17,15 +17,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
 from dns.resolver import query
+import logging
 
-def find(predicate, itr):
+logger = logging.getLogger('spf-digraph')
+
+def debug(*args, **kwargs):
+    logger.debug(*args, **kwargs)
+
+def find(f, itr, default=None):
     """
     find first node that matches predicate
     """
-    def a(a, i):
-        return a or f(i) and i or None
-    return reduce(a, itr)
-
+    for x in itr:
+        if f(x):
+            return x
+    return default
 
 class Node(object):
     """
@@ -65,6 +71,7 @@ class TreeBuilder(object):
         """
         tree = None
         for typ, name in self.resolver(domain):
+            debug("-> ({}, {})".format(typ, name))
             if typ == 'enter':
                 if len(self.stack):
                     node = self.stack[-1].add_child(name)
@@ -94,8 +101,15 @@ class Resolver(object):
         as it enters and exits each DNS record.
         """
         yield 'enter', domain
-        res = map(lambda x: x.to_text(), query(domain, "TXT"))
-        terms = find(lambda x: x.startswith('v=spf1'), res).split()
+
+        def to_text(x):
+            return x.to_text()
+
+        def is_spf(x):
+            return x.strip('"').startswith('v=spf1')
+
+        res = map(to_text, query(domain, "TXT"))
+        terms = find(is_spf, res, '').split()
         for record in filter(self.is_include, terms):
             name = record.split(':')[1]
             for typ, name in self(name):
@@ -141,6 +155,10 @@ def main(domain):
 
 if __name__ == '__main__':
     import sys
+    import os
+
+    if os.environ.get("DEBUG", 'false').lower() not in ('0', 'false'):
+        logging.basicConfig(level=logging.DEBUG)
 
     if len(sys.argv) != 2:
         "ERROR: Takes one argument that is domain name"

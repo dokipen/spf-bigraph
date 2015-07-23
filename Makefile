@@ -1,7 +1,7 @@
 DOT=dot
 PYTHON=python
 
-all: $(DOMAIN).pdf $(DOMAIN).png
+all: $(DOMAIN).pdf $(DOMAIN).png $(DOMAIN).dot
 
 %.pdf: %.dot
 	$(DOT) -Tpdf $< -o $@
