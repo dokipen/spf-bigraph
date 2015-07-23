@@ -1,5 +1,5 @@
 """
-A tool to create a bigraph of spf lookups.
+A tool to create a digraph of spf lookups.
 Copyright (C) 2015 Robert Corsaro
 
 This program is free software: you can redistribute it and/or modify

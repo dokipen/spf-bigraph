@@ -1,4 +1,4 @@
-Make bigraphs of spf records.
+Make digraphs of spf records.
 
 Requirements
 ------------
