@@ -28,16 +28,17 @@ function mknodes(data) {
 function run(data) {
   $('svg').remove();
   var width = 800;
-  var height = 600;
-  var distance = 200;
+  var height = $(window).height();
   var verydark = '#622';
   var dark = '#a88';
   var light = '#daa';
   var head = '#ada';
-  var charge = -600;
+  var charge = -800;
   var gravity = 0.05;
-  var r = 50; // radius
+  var markerSize = 12;
+  var r = 70; // radius
   var sw = 3; // stroke-width
+  var distance = r * 3;
 
   var svg = d3.select('body')
               .append('svg').attr({
@@ -47,12 +48,12 @@ function run(data) {
   svg.append('defs').append('marker').attr({
     'id': 'head',
     orient: 'auto',
-    markerWidth: 8,
-    markerHeight: 8,
-    refX: 21,
-    refY: 4,
+    markerWidth: markerSize,
+    markerHeight: markerSize,
+    refX: (r / sw) + (markerSize / 2),
+    refY: markerSize / 2,
   }).append('path').attr({
-    d: 'M0,0 V8 L4,4 Z',
+    d: 'M0,0 V'+markerSize+' L'+markerSize/2+','+markerSize/2+' Z',
     fill: dark
   });
 
@@ -71,7 +72,7 @@ function run(data) {
     .data(links)
     .enter()
     .append('path')
-    .attr({ 'class': 'link', });
+    .attr({ 'class': 'link', 'stroke-width': sw});
 
   var node = svg.selectAll('.node')
     .data(nodes)
@@ -80,11 +81,15 @@ function run(data) {
     .call(force.drag)
     .attr('class', 'node');
 
-  node.append('ellipse')
+  node.append('circle')
        .attr({
          'class': function(_, i) {
            return i == 0 && 'head';
-         }
+         },
+         'r': r,
+         'cx': r,
+         'cy': r,
+         'stroke-width': sw
        });
 
   node.append('text')
@@ -117,20 +122,22 @@ function run(data) {
 function load(domain) {
   d3.json("../data/"+domain+".json", function(e, data) {
     run(data);
+    $('.links .link').remove();
+    $('.links').append('<a class="link pdf" href="docs/'+domain+'.pdf" download>pdf</a>');
+    $('.links').append('<a class="link png" href="images/'+domain+'.png" download>png</a>');
   });
 }
 
 jQuery(function($) {
   domains = domains.sort();
-  $('body').append($("<div>").addClass('menu'));
+  $('body').append($('<div class="menu"></div>'));
+  $('body').append($('<div class="links"></div>'));
   domains.forEach(function(d) {
     var item = $('<p>'+d+'</p>').addClass('item').click(function() {
       load(d);
       $('.menu .item').removeClass('selected');
       $(this).addClass('selected');
     });
-    item.append('<a class="link pdf" href="docs/'+d+'.pdf" download>pdf</a>');
-    item.append('<a class="link png" href="images/'+d+'.png" download>png</a>');
     $('.menu').append(item);
   });
   $('.menu .item').first().addClass('selected');
