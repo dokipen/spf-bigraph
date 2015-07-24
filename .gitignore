@@ -1,4 +1,3 @@
-*.dot
-*.pdf
-*.png
+build/
+work/
 *.pyc

@@ -17,6 +17,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
 from dns.resolver import query
+from dns.exception import DNSException
+import json
 import logging
 
 logger = logging.getLogger('spf-digraph')
@@ -50,6 +52,7 @@ class Node(object):
         if name not in self.children_names:
             node = Node(name)
             self.children.append(node)
+            self.children_names.add(node.name)
             return node
         else:
             return find(lambda x: x.name == name, self.children)
@@ -60,6 +63,12 @@ class Node(object):
 
     def __str__(self):
         return self.__unicode__()
+
+    def to_obj(self):
+        return {
+            'name': self.name,
+            'children': list(self.children_names),
+        }
 
 
 class TreeBuilder(object):
@@ -115,19 +124,29 @@ class Resolver(object):
         """
         return x.strip('"').startswith('v=spf1')
 
-    def __call__(self, domain):
+    def __call__(self, domain, visited=None):
         """
         queries spf records on domain recursively, sending messages to caller
         as it enters and exits each DNS record.
         """
+        if not visited:
+            visited = set()
+
+        if domain in visited:
+            return
+        visited.add(domain)
+
         yield 'enter', domain
 
-        res = map(self.to_text, query(domain, "TXT"))
-        terms = find(self.is_spf, res, '').split()
-        for record in filter(self.is_include, terms):
-            name = record.split(':')[1]
-            for typ, name in self(name):
-                yield typ, name
+        try:
+            res = map(self.to_text, query(domain, "TXT"))
+            terms = find(self.is_spf, res, '').split()
+            for record in filter(self.is_include, terms):
+                name = record.split(':')[1]
+                for typ, name in self(name, visited):
+                    yield typ, name
+        except DNSException:
+            logger.exception("Failed DNS lookup on {}".format(domain))
 
         yield 'exit', domain
 
@@ -147,9 +166,7 @@ class Tree(object):
         if not node:
             node = self.head
 
-        if not len(node.children):
-            return
-        else:
+        if len(node.children):
             for n in node.children:
                 for bigram in self.bigrams(n):
                     yield bigram
@@ -161,6 +178,23 @@ class Tree(object):
     def __str__(self):
         return self.__unicode__()
 
+    def each_node(self, visited=None, node=None):
+        if not visited:
+            visited = set()
+        if not node:
+            node = self.head
+        if node.name in visited:
+            return
+
+        visited.add(node.name)
+        yield node
+        if len(node.children):
+            for n in node.children:
+                for r in self.each_node(visited, n):
+                    yield r
+
+    def to_json(self):
+        return json.dumps([n.to_obj() for n in self.each_node()])
 
 def digraph(domain):
     print 'digraph G {'
@@ -168,6 +202,8 @@ def digraph(domain):
         print '    "{}" -> "{}"'.format(a, b)
     print '}'
 
+def as_json(domain):
+    print TreeBuilder().build(domain).to_json()
 
 if __name__ == '__main__':
     import sys
@@ -180,4 +216,4 @@ if __name__ == '__main__':
         "ERROR: Takes one argument that is domain name"
         sys.exit(1)
 
-    digraph(sys.argv[1])
+    (os.environ.get("FORMAT") == 'json' and as_json or digraph)(sys.argv[1])
